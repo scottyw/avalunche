@@ -10,11 +10,11 @@
 
 ;; Configuration options
 
-(def max-agents 200)
+(def max-agents 200)                                        ; This defines the number of unique certnames that will be used
 
-(def unchanged-report-percentage 95)
+(def unchanged-report-percentage 95)                        ; This percentage of reports (roughly) will be unchanged
 
-(def average-events-per-report 20)
+(def average-events-per-report 10)                          ; On average, if a report is not unchanged it will have this many events
 
 ;;
 
@@ -82,7 +82,7 @@
      :message          "blah blah blah something happened"}))
 
 (defn- make-events [report-status]
-  (vec (repeatedly (rand-int average-events-per-report) #(make-event report-status))))
+  (vec (repeatedly (rand-int (* 2 average-events-per-report)) #(make-event report-status))))
 
 (defn- make-report [name environment uuid config-version]
   (let [report-status (if (< (rand-int 100) unchanged-report-percentage)
