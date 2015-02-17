@@ -42,35 +42,76 @@
 (defn- make-events [x]
   (vec (repeatedly x make-event)))
 
-(defn- make-report []
+(defn- make-report [name environment uuid config-version]
   {:command "store report"
    :version 4
    :payload {:puppet-version        "3.7.2 (Puppet Enterprise 3.7.0-rc2-18-gff57637)"
              :report-format         4
              :start-time            (make-timestamp)
              :end-time              (make-timestamp)
-             :transaction-uuid      (UUID/randomUUID)
+             :transaction-uuid      uuid
              :status                (get report-statuses (rand-int (count report-statuses)))
-             :environment           (get environments (rand-int (count environments)))
-             :configuration-version "1421424242"
-             :certname              (format "agent%06d" (swap! id inc))
+             :environment           environment
+             :configuration-version config-version
+             :certname              name
              :resource-events       (make-events (rand-int 20))}})
 
-; curl -X POST
-; -H "Accept: application/json"
-;  -H "Content-Type: application/json"
-;  http://pe:8080/v4/commands
-; -d @/Users/scott/Desktop/test-report-submission.json
+(defn- make-facts [name environment]
+  {:command "replace facts"
+   :version 3
+   :payload {:name               name
+             :environment        environment
+             :producer-timestamp (make-timestamp)
+             :values             {"foo" "bar"}}})
 
-(defn- push-report [pdb]
-  (let [report (make-report)]
+
+(defn- make-catalog [name environment uuid config-version]
+  {:command "replace catalog"
+   :version 5
+   :payload {:name               name
+             :environment        environment
+             :version            config-version
+             :transaction-uuid   uuid
+             :producer-timestamp (make-timestamp)
+             :edges              {}
+             :resources          [{:exported   false
+                                   :title      "/etc/apt/preferences.d/puppetlabs.pref"
+                                   :line       60
+                                   :parameters {
+                                                "group"  "root"
+                                                :mode    "0644",
+                                                :content "Package: *\nPin: origin \"apt.puppetlabs.com\"\nPin-Priority: 900\n",
+                                                :ensure  "present",
+                                                :owner   "root"
+                                                }
+                                   :tags       ["file", "apt::pin", "apt", "pin", "puppetlabs", "class", "os::linux::debian", "os", "linux", "debian", "os::linux", "role::base", "role", "base", "role::server", "server", "node", "myhost.localdomain"]
+                                   :type       "File"
+                                   :file       "/Users/nicklewis/projects/puppetlabs-modules/dist/apt/manifests/pin.pp"}]}})
+
+(defn- post-command [pdb]
+  (let [name (format "agent%06d" (mod (swap! id inc) 200))
+        environment (get environments (rand-int (count environments)))
+        uuid (UUID/randomUUID)
+        config-version (str (quot (.getTime (Date.)) 1000))
+        facts (make-facts name environment)
+        catalog (make-catalog name environment uuid config-version)
+        report (make-report name environment uuid config-version)]
     (println (get-in report [:payload :transaction-uuid]))
     (http/post (str pdb "/v4/commands")
                {:headers
                       {"Accept"       "application/json"
                        "Content-Type" "application/json"}
-                :body (json/encode report)}))
-  )
+                :body (json/encode facts)})
+    (http/post (str pdb "/v4/commands")
+               {:headers
+                      {"Accept"       "application/json"
+                       "Content-Type" "application/json"}
+                :body (json/encode catalog)})
+    (http/post (str pdb "/v4/commands")
+               {:headers
+                      {"Accept"       "application/json"
+                       "Content-Type" "application/json"}
+                :body (json/encode report)})))
 
 (defn -main
   "Launches Avalunche"
@@ -81,5 +122,5 @@
         count (read-string (second args))]
     (println "Pushing" count "reports into" pdb)
     (doall
-      (repeatedly count #(push-report pdb)))
+      (repeatedly count #(post-command pdb)))
     (println "Finished")))
