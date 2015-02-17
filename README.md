@@ -2,7 +2,17 @@
 
 A Clojure library designed to push large numbers of randomly generated Puppet reports into PuppetDB.
 
-There are lots of limitations. You have almost no control over behaviour except to specify the PuppetDB instance and the number of reports you want to create.
+It is very rough-and-ready: the code is not production quality and there are lots of limitations. You have almost no
+control over behaviour except to specify the PuppetDB instance and the number of reports you want to create. Super basic
+hardcoded facts and catalogs are also included.
+
+If you're happy to edit the source you have some more options, which are listed at the top of the core namespace:
+
+    (def max-agents 200)                  ; This defines the number of unique certnames that will be used
+
+    (def unchanged-report-percentage 95)  ; This percentage of reports (roughly) will be unchanged
+
+    (def average-events-per-report 10)    ; On average, if a report is not unchanged it will have this many events
 
 ## Usage
 
@@ -10,7 +20,13 @@ There are lots of limitations. You have almost no control over behaviour except 
 
     e.g. lein run http://pe:8080 100
 
-Only the http:// interface of PuppetDB is supported.
+Only the http interface of PuppetDB is supported i.e. not https.
+
+## Future Work
+
+* Command line options rather than source editing to tweak behaviour
+* Better variety of events
+* Reasonable fact and catalog support
 
 ## License
 
