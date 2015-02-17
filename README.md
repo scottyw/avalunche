@@ -1,10 +1,12 @@
 # default
 
-A Clojure library designed to ... well, that part is up to you.
+A Clojure library designed to push large numbers randomly generated Puppet reports into PuppetDB.
+
+There are lots of limitations. You have almost no control over behaviour except to specify the number of reports you want to send to PuppetDB. PuppetDB is assumed to be running on http://pe:8080.
 
 ## Usage
 
-FIXME
+lein run <number>
 
 ## License
 
