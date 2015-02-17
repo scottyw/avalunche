@@ -62,10 +62,10 @@
 ;  http://pe:8080/v4/commands
 ; -d @/Users/scott/Desktop/test-report-submission.json
 
-(defn- push-report []
+(defn- push-report [pdb]
   (let [report (make-report)]
     (println (get-in report [:payload :transaction-uuid]))
-    (http/post "http://pe:8080/v4/commands"
+    (http/post (str pdb "/v4/commands")
                {:headers
                       {"Accept"       "application/json"
                        "Content-Type" "application/json"}
@@ -75,8 +75,11 @@
 (defn -main
   "Launches Avalunche"
   [& args]
-  (let [count (read-string (first args))]
-    (println "Pushing" count "reports into http://pe:8080")
+  {:pre [(= 2 (count args))
+         (every? string? args)]}
+  (let [pdb (first args)
+        count (read-string (second args))]
+    (println "Pushing" count "reports into" pdb)
     (doall
-      (repeatedly count push-report))
+      (repeatedly count #(push-report pdb)))
     (println "Finished")))
