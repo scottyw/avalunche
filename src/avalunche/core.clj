@@ -112,14 +112,11 @@
   (let [name (format "agent%06d" (mod (swap! agent-id inc) max-agents))
         environment (get environments (rand-int (count environments)))
         uuid (UUID/randomUUID)
-        config-version (str (quot (.getTime (Date.)) 1000))
-        facts (make-facts name environment)
-        catalog (make-catalog name environment uuid config-version)
-        report (make-report name environment uuid config-version)]
-    (println (get-in report [:payload :transaction-uuid]))
-    (post-command pdb facts)
-    (post-command pdb catalog)
-    (post-command pdb report)))
+        config-version (str (quot (.getTime (Date.)) 1000))]
+    (println uuid)
+    (post-command pdb (make-facts name environment))
+    (post-command pdb (make-catalog name environment uuid config-version))
+    (post-command pdb (make-report name environment uuid config-version))))
 
 (defn -main
   "Launches Avalunche"
