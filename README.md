@@ -1,14 +1,16 @@
 # Avalunche
 
-A Clojure library designed to push large numbers randomly generated Puppet reports into PuppetDB.
+A Clojure library designed to push large numbers of randomly generated Puppet reports into PuppetDB.
 
-There are lots of limitations. You have almost no control over behaviour except to specify the number of reports you want to send to PuppetDB. 
-
-PuppetDB is assumed to be running on http://pe:8080.
+There are lots of limitations. You have almost no control over behaviour except to specify the PuppetDB instance and the number of reports you want to create.
 
 ## Usage
 
-lein run *number*
+    lein run *puppetdb-url-prefix* *number*
+
+    e.g. lein run http://pe:8080 100
+
+Only the http:// interface of PuppetDB is supported.
 
 ## License
 
