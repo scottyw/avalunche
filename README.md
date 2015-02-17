@@ -1,4 +1,4 @@
-# default
+# Avalunche
 
 A Clojure library designed to push large numbers randomly generated Puppet reports into PuppetDB.
 
