@@ -35,20 +35,20 @@
 
 (defn- make-facts [name environment]
   {:command "replace facts"
-   :version 3
-   :payload {:name               name
+   :version 4
+   :payload {:certname           name
              :environment        environment
-             :producer-timestamp (make-timestamp)
+             :producer_timestamp (make-timestamp)
              :values             {"foo" "bar"}}})
 
 (defn- make-catalog [name environment uuid config-version]
   {:command "replace catalog"
-   :version 5
-   :payload {:name               name
+   :version 6
+   :payload {:certname           name
              :environment        environment
              :version            config-version
-             :transaction-uuid   uuid
-             :producer-timestamp (make-timestamp)
+             :transaction_uuid   uuid
+             :producer_timestamp (make-timestamp)
              :edges              {}
              :resources          [{:exported   false
                                    :title      "/etc/apt/preferences.d/puppetlabs.pref"
@@ -69,15 +69,15 @@
                          "unchanged" ["unchanged"]
                          "changed" ["unchanged", "changed"]
                          "failed" ["unchanged", "changed", "skipped", "failed"])]
-    {:containment-path ["Stage[main]" "Puppet_enterprise::Server::Logs" (str "File[" file "]")]
-     :new-value        "present"
-     :resource-title   file
+    {:containment_path ["Stage[main]" "Puppet_enterprise::Server::Logs" (str "File[" file "]")]
+     :new_value        "present"
+     :resource_title   file
      :property         "ensure"
      :file             "/opt/puppet/share/puppet/manifests/logs.pp"
-     :old-value        "absent"
+     :old_value        "absent"
      :line             (rand-int 200)
      :status           (get event-statuses (rand-int (count event-statuses)))
-     :resource-type    "File"
+     :resource_type    "File"
      :timestamp        (make-timestamp)
      :message          "blah blah blah something happened"}))
 
@@ -89,17 +89,18 @@
                         "unchanged"
                         (get report-statuses (rand-int (count report-statuses))))]
     {:command "store report"
-     :version 4
-     :payload {:puppet-version        "3.7.2 (Puppet Enterprise 3.7.0-rc2-18-gff57637)"
-               :report-format         4
-               :start-time            (make-timestamp)
-               :end-time              (make-timestamp)
-               :transaction-uuid      uuid
+     :version 5
+     :payload {:puppet_version        "3.7.2 (Puppet Enterprise 3.7.0-rc2-18-gff57637)"
+               :report_format         5
+               :start_time            (make-timestamp)
+               :end_time              (make-timestamp)
+               :transaction_uuid      uuid
                :status                report-status
                :environment           environment
-               :configuration-version config-version
+               :configuration_version config-version
                :certname              name
-               :resource-events       (make-events report-status)}}))
+               :resource_events       (make-events report-status)
+               :noop                  false}}))
 
 (defn- post-command [pdb command]
   (http/post (str pdb "/v4/commands")
