@@ -10,7 +10,7 @@
 
 ;; Configuration options
 
-(def max-agents 200)                                        ; This defines the number of unique certnames that will be used
+(def max-agents 5000)                                       ; This defines the number of unique certnames that will be used
 
 (def unchanged-report-percentage 95)                        ; This percentage of reports (roughly) will be unchanged
 
@@ -19,6 +19,8 @@
 ;;
 
 (def agent-id (atom 0))
+
+(def counter (atom 0))
 
 (def ts (atom (.getTime (Date.))))
 
@@ -30,7 +32,7 @@
   (time-fmt/unparse
     (:date-time time-fmt/formatters)
     (DateTime.
-      (swap! ts (partial + 10000))
+      (swap! ts (partial - 10000))
       #^DateTimeZone time/utc)))
 
 (defn- make-facts [name environment]
@@ -100,6 +102,8 @@
                :configuration_version config-version
                :certname              name
                :resource_events       (make-events report-status)
+               :metrics               nil
+               :logs                  nil
                :noop                  false}}))
 
 (defn- post-command [pdb command]
@@ -110,14 +114,18 @@
               :body (json/encode command)}))
 
 (defn- generate [pdb]
-  (let [name (format "agent%06d" (mod (swap! agent-id inc) max-agents))
+  (let [current (swap! counter inc)
+        name (format "agent%06d" (mod (swap! agent-id inc) max-agents))
         environment (get environments (rand-int (count environments)))
         uuid (UUID/randomUUID)
         config-version (str (quot (.getTime (Date.)) 1000))]
-    (println uuid)
-    (post-command pdb (make-facts name environment))
-    (post-command pdb (make-catalog name environment uuid config-version))
-    (post-command pdb (make-report name environment uuid config-version))))
+    (if (<= current max-agents)
+      (do
+        (post-command pdb (make-facts name environment))
+        (post-command pdb (make-catalog name environment uuid config-version))))
+    (post-command pdb (make-report name environment uuid config-version))
+    (if (= 0 (rem current 100))
+      (println "Completed ... " current))))
 
 (defn -main
   "Launches Avalunche"
@@ -127,5 +135,5 @@
         count (read-string (second args))]
     (println "Pushing" count "reports into" pdb)
     (doall
-      (repeatedly count #(generate pdb)))
-    (println "Finished")))
+      (repeatedly count #(generate pdb))))
+  (println "Finished"))
