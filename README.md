@@ -16,11 +16,19 @@ If you're happy to edit the source you have some more options, which are listed 
 
 ## Usage
 
-    lein run *puppetdb-url-prefix* *number*
+To create some number of reports on a PuppetDB instance located at http://localhost:8080:
 
-    e.g. lein run http://pe:8080 100
+    lein run *number-of-reports-to-create*
 
-Only the http interface of PuppetDB is supported i.e. not https.
+    e.g. lein run 1000
+
+To create some number of reports on a PuppetDB instance located elsewhere:
+
+    lein run *number-of-reports-to-create* *puppetdb-url-prefix*
+
+    e.g. lein run 1000 http://pe:8080
+
+Only the http interface of PuppetDB is supported, not https.
 
 ## Future Work
 

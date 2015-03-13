@@ -30,10 +30,10 @@
 
 (defn- make-timestamp []
   (time-fmt/unparse
-    (:date-time time-fmt/formatters)
-    (DateTime.
-      (swap! ts (partial - 10000))
-      #^DateTimeZone time/utc)))
+   (:date-time time-fmt/formatters)
+   (DateTime.
+    (swap! ts (partial - 10000))
+    #^DateTimeZone time/utc)))
 
 (defn- make-facts [name environment]
   {:command "replace facts"
@@ -65,7 +65,7 @@
                                    :file       "/Users/nicklewis/projects/puppetlabs-modules/dist/apt/manifests/pin.pp"}]}})
 
 (defn- make-event [report-status]
-  (let [file (str "/var/log/foo/" (UUID/randomUUID) " .log")
+  (let [file           (str "/var/log/foo/" (UUID/randomUUID) " .log")
         event-statuses (case report-status
                          "noop" ["unchanged", "noop"]
                          "unchanged" ["unchanged"]
@@ -109,15 +109,15 @@
 (defn- post-command [pdb command]
   (http/post (str pdb "/v4/commands")
              {:headers
-                    {"Accept"       "application/json"
-                     "Content-Type" "application/json"}
+              {"Accept"       "application/json"
+               "Content-Type" "application/json"}
               :body (json/encode command)}))
 
 (defn- generate [pdb]
-  (let [current (swap! counter inc)
-        name (format "agent%06d" (mod (swap! agent-id inc) max-agents))
-        environment (get environments (rand-int (count environments)))
-        uuid (UUID/randomUUID)
+  (let [current        (swap! counter inc)
+        name           (format "agent%06d" (mod (swap! agent-id inc) max-agents))
+        environment    (get environments (rand-int (count environments)))
+        uuid           (UUID/randomUUID)
         config-version (str (quot (.getTime (Date.)) 1000))]
     (if (<= current max-agents)
       (do
@@ -130,10 +130,12 @@
 (defn -main
   "Launches Avalunche"
   [& args]
-  {:pre [(= 2 (count args))]}
-  (let [pdb (first args)
-        count (read-string (second args))]
-    (println "Pushing" count "reports into" pdb)
+  {:pre [(<= 1 (count args) 2)]}
+  (let [report-count (read-string (first args))
+        pdb          (if (= 2 (count args))
+                       (second args)
+                       "http://localhost:8080")]
+    (println "Pushing" report-count "reports into" pdb)
     (doall
-      (repeatedly count #(generate pdb))))
+     (repeatedly report-count #(generate pdb))))
   (println "Finished"))
