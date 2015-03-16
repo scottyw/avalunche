@@ -10,11 +10,13 @@
 
 ;; Configuration options
 
-(def max-agents 5000)                                       ; This defines the number of unique certnames that will be used
+(def max-agents 50)                                         ; This defines the number of unique certnames that will be used
 
 (def unchanged-report-percentage 95)                        ; This percentage of reports (roughly) will be unchanged
 
 (def average-events-per-report 10)                          ; On average, if a report is not unchanged it will have this many events
+
+(def average-logs-per-report 10)                            ; On average, if a report is not unchanged it will have this many events
 
 ;;
 
@@ -28,14 +30,16 @@
 
 (def environments ["production", "development", "test", "staging"])
 
-(defn- make-timestamp []
+(defn- make-timestamp
+  []
   (time-fmt/unparse
-   (:date-time time-fmt/formatters)
-   (DateTime.
-    (swap! ts (partial - 10000))
-    #^DateTimeZone time/utc)))
+    (:date-time time-fmt/formatters)
+    (DateTime.
+      (swap! ts #(- % 1000))
+      #^DateTimeZone time/utc)))
 
-(defn- make-facts [name environment]
+(defn- make-facts
+  [name environment]
   {:command "replace facts"
    :version 4
    :payload {:certname           name
@@ -43,7 +47,8 @@
              :producer_timestamp (make-timestamp)
              :values             {"foo" "bar"}}})
 
-(defn- make-catalog [name environment uuid config-version]
+(defn- make-catalog
+  [name environment uuid config-version]
   {:command "replace catalog"
    :version 6
    :payload {:certname           name
@@ -62,9 +67,10 @@
                                                 :owner   "root"}
                                    :tags       ["file", "apt::pin", "apt", "pin", "puppetlabs", "class", "os::linux::debian", "os", "linux", "debian", "os::linux", "role::base", "role", "base", "role::server", "server", "node", "myhost.localdomain"]
                                    :type       "File"
-                                   :file       "/Users/nicklewis/projects/puppetlabs-modules/dist/apt/manifests/pin.pp"}]}})
+                                   :file       "/Users/projects/manifests/foo.pp"}]}})
 
-(defn- make-event [report-status]
+(defn- make-event
+  [report-status]
   (let [file           (str "/var/log/foo/" (UUID/randomUUID) " .log")
         event-statuses (case report-status
                          "noop" ["unchanged", "noop"]
@@ -77,22 +83,121 @@
      :property         "ensure"
      :file             "/opt/puppet/share/puppet/manifests/logs.pp"
      :old_value        "absent"
-     :line             (rand-int 200)
+     :line             (inc (rand-int 200))
      :status           (get event-statuses (rand-int (count event-statuses)))
      :resource_type    "File"
      :timestamp        (make-timestamp)
      :message          "blah blah blah something happened"}))
 
-(defn- make-events [report-status]
-  (vec (repeatedly (rand-int (* 2 average-events-per-report)) #(make-event report-status))))
+(defn- make-events
+  [report-status]
+  (vec (repeatedly (inc (rand-int (* 2 average-events-per-report))) #(make-event report-status))))
 
-(defn- make-report [name environment uuid config-version]
+(defn- make-metrics
+  []
+  [{:category "time"
+    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+    :name     "anchor"}
+   {:category "time"
+    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+    :name     "config_retrieval"}
+   {:category "time"
+    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+    :name     "exec"}
+   {:category "time"
+    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+    :name     "file"}
+   {:category "time"
+    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+    :name     "filebucket"}
+   {:category "time"
+    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+    :name     "gnupg_key"}
+   {:category "time"
+    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+    :name     "ini_setting"}
+   {:category "time"
+    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+    :name     "notify"}
+   {:category "time"
+    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+    :name     "package"}
+   {:category "time"
+    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+    :name     "schedule"}
+   {:category "time"
+    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+    :name     "service"}
+   {:category "time"
+    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+    :name     "total"}
+   {:category "time"
+    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+    :name     "vcsrepo"}
+   {:category "resources"
+    :value    (rand-int 100)
+    :name     "changed"}
+   {:category "resources"
+    :value    (rand-int 100)
+    :name     "failed"}
+   {:category "resources"
+    :value    (rand-int 100)
+    :name     "failed_to_restart"}
+   {:category "resources"
+    :value    (rand-int 100)
+    :name     "out_of_sync"}
+   {:category "resources"
+    :value    (rand-int 100)
+    :name     "restarted"}
+   {:category "resources"
+    :value    (rand-int 100)
+    :name     "scheduled"}
+   {:category "resources"
+    :value    (rand-int 100)
+    :name     "skipped"}
+   {:category "resources"
+    :value    (rand-int 100)
+    :name     "total"}
+   {:category "events"
+    :value    (rand-int 100)
+    :name     "failure"}
+   {:category "events"
+    :value    (rand-int 100)
+    :name     "success"}
+   {:category "events"
+    :value    (rand-int 100)
+    :name     "total"}
+   {:category "changes"
+    :value    (rand-int 100)
+    :name     "total"
+    }])
+
+(defn- make-log
+  []
+  (let [file (str "/var/log/foo/" (UUID/randomUUID) " .log")]
+    {:file    file
+     :line    (inc (rand-int 200))
+     :level   "info"
+     :message "This is a log message that says all is well"
+     :source  "/opt/puppet/share/puppet/manifests/logs.pp"
+     :tags    ["tag1", "tag2"]
+     :time    (make-timestamp)}))
+
+(defn- make-logs
+  [report-status]
+  (let [log-count (case report-status
+                    "unchanged" 6
+                    (+ 6 (rand-int (* 2 average-logs-per-report))))]
+    (vec (repeatedly log-count #(make-log)))))
+
+(defn- make-report
+  [name environment uuid config-version]
   (let [report-status (if (< (rand-int 100) unchanged-report-percentage)
                         "unchanged"
                         (get report-statuses (rand-int (count report-statuses))))]
     {:command "store report"
      :version 5
-     :payload {:puppet_version        "3.7.2 (Puppet Enterprise 3.7.0-rc2-18-gff57637)"
+     :payload {:puppet_version        "4.0.0 (Puppet Enterprise Shallow Gravy man!"
                :report_format         5
                :start_time            (make-timestamp)
                :end_time              (make-timestamp)
@@ -102,18 +207,20 @@
                :configuration_version config-version
                :certname              name
                :resource_events       (make-events report-status)
-               :metrics               nil
-               :logs                  nil
+               :metrics               (make-metrics)
+               :logs                  (make-logs report-status)
                :noop                  false}}))
 
-(defn- post-command [pdb command]
+(defn- post-command
+  [pdb command]
   (http/post (str pdb "/v4/commands")
-             {:headers
-              {"Accept"       "application/json"
-               "Content-Type" "application/json"}
-              :body (json/encode command)}))
+    {:headers
+           {"Accept"       "application/json"
+            "Content-Type" "application/json"}
+     :body (json/encode command)}))
 
-(defn- generate [pdb]
+(defn- generate
+  [pdb]
   (let [current        (swap! counter inc)
         name           (format "agent%06d" (mod (swap! agent-id inc) max-agents))
         environment    (get environments (rand-int (count environments)))
@@ -137,5 +244,5 @@
                        "http://localhost:8080")]
     (println "Pushing" report-count "reports into" pdb)
     (doall
-     (repeatedly report-count #(generate pdb))))
+      (repeatedly report-count #(generate pdb))))
   (println "Finished"))
