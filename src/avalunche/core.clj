@@ -7,12 +7,9 @@
            (java.util Date)
            (org.joda.time DateTime DateTimeZone)))
 
-
 ;; Configuration options
 
 (def max-agents 50)                                         ; This defines the number of unique certnames that will be used
-
-(def unchanged-report-percentage 95)                        ; This percentage of reports (roughly) will be unchanged
 
 (def average-events-per-report 10)                          ; On average, if a report is not unchanged it will have this many events
 
@@ -94,87 +91,107 @@
   (vec (repeatedly (inc (rand-int (* 2 average-events-per-report))) #(make-event report-status))))
 
 (defn- make-metrics
-  []
-  [{:category "time"
-    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
-    :name     "anchor"}
-   {:category "time"
-    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
-    :name     "config_retrieval"}
-   {:category "time"
-    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
-    :name     "exec"}
-   {:category "time"
-    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
-    :name     "file"}
-   {:category "time"
-    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
-    :name     "filebucket"}
-   {:category "time"
-    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
-    :name     "gnupg_key"}
-   {:category "time"
-    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
-    :name     "ini_setting"}
-   {:category "time"
-    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
-    :name     "notify"}
-   {:category "time"
-    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
-    :name     "package"}
-   {:category "time"
-    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
-    :name     "schedule"}
-   {:category "time"
-    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
-    :name     "service"}
-   {:category "time"
-    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
-    :name     "total"}
-   {:category "time"
-    :value    (float (/ (rand-int 100) (inc (rand-int 20))))
-    :name     "vcsrepo"}
-   {:category "resources"
-    :value    (rand-int 100)
-    :name     "changed"}
-   {:category "resources"
-    :value    (rand-int 100)
-    :name     "failed"}
-   {:category "resources"
-    :value    (rand-int 100)
-    :name     "failed_to_restart"}
-   {:category "resources"
-    :value    (rand-int 100)
-    :name     "out_of_sync"}
-   {:category "resources"
-    :value    (rand-int 100)
-    :name     "restarted"}
-   {:category "resources"
-    :value    (rand-int 100)
-    :name     "scheduled"}
-   {:category "resources"
-    :value    (rand-int 100)
-    :name     "skipped"}
-   {:category "resources"
-    :value    (rand-int 100)
-    :name     "total"}
-   {:category "events"
-    :value    (rand-int 100)
-    :name     "failure"}
-   {:category "events"
-    :value    (rand-int 100)
-    :name     "success"}
-   {:category "events"
-    :value    (rand-int 100)
-    :name     "total"}
-   {:category "changes"
-    :value    (rand-int 100)
-    :name     "total"
-    }])
+  [noop?]
+  (vec
+    (concat
+      [{:category "time"
+        :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+        :name     "anchor"}
+       {:category "time"
+        :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+        :name     "config_retrieval"}
+       {:category "time"
+        :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+        :name     "exec"}
+       {:category "time"
+        :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+        :name     "file"}
+       {:category "time"
+        :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+        :name     "filebucket"}
+       {:category "time"
+        :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+        :name     "gnupg_key"}
+       {:category "time"
+        :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+        :name     "ini_setting"}
+       {:category "time"
+        :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+        :name     "notify"}
+       {:category "time"
+        :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+        :name     "package"}
+       {:category "time"
+        :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+        :name     "schedule"}
+       {:category "time"
+        :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+        :name     "service"}
+       {:category "time"
+        :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+        :name     "total"}
+       {:category "time"
+        :value    (float (/ (rand-int 100) (inc (rand-int 20))))
+        :name     "vcsrepo"}
+       {:category "resources"
+        :value    (rand-int 100)
+        :name     "changed"}
+       {:category "resources"
+        :value    (rand-int 100)
+        :name     "failed"}
+       {:category "resources"
+        :value    (rand-int 100)
+        :name     "failed_to_restart"}
+       {:category "resources"
+        :value    (rand-int 100)
+        :name     "out_of_sync"}
+       {:category "resources"
+        :value    (rand-int 100)
+        :name     "restarted"}
+       {:category "resources"
+        :value    (rand-int 100)
+        :name     "scheduled"}
+       {:category "resources"
+        :value    (rand-int 100)
+        :name     "skipped"}
+       {:category "resources"
+        :value    (rand-int 100)
+        :name     "total"}
+       {:category "changes"
+        :value    (rand-int 100)
+        :name     "total"
+        }]
+      (if noop?
+        (let [noop-count (rand-int 100)]
+          [{:category "events"
+            :value    0
+            :name     "failure"}
+           {:category "events"
+            :value    0
+            :name     "success"}
+           {:category "events"
+            :value    noop-count
+            :name     "noop"}
+           {:category "events"
+            :value    noop-count
+            :name     "total"}])
+        (let [failure-count (rand-int 100)
+              success-count (rand-int 100)
+              total-count   (+ failure-count success-count)
+              ]
+          [{:category "events"
+            :value    failure-count
+            :name     "failure"}
+           {:category "events"
+            :value    success-count
+            :name     "success"}
+           {:category "events"
+            :value    total-count
+            :name     "total"}])))))
 
 (defn- make-log
   []
-  (let [file (str "/var/log/foo/" (UUID/randomUUID) " .log")]
+  (let [file (str "/var/log/foo/" (UUID/randomUUID) ".log")]
     {:file    file
      :line    (inc (rand-int 200))
      :level   "info"
@@ -190,14 +207,24 @@
                     (+ 6 (rand-int (* 2 average-logs-per-report))))]
     (vec (repeatedly log-count #(make-log)))))
 
+(defn- make-report-status
+  [noop?]
+  (if noop? "noop")
+  (if (< (rand-int 100) 95)                                 ; 95% of reports are unchanged
+    "unchanged"
+    (get report-statuses (rand-int (count report-statuses)))))
+
+(defn- noop?
+  []
+  (< (rand-int 100) 5))                                     ; 9% of reports are noop
+
 (defn- make-report
   [name environment uuid config-version]
-  (let [report-status (if (< (rand-int 100) unchanged-report-percentage)
-                        "unchanged"
-                        (get report-statuses (rand-int (count report-statuses))))]
+  (let [noop?         (noop?)
+        report-status (make-report-status noop?)]
     {:command "store report"
      :version 5
-     :payload {:puppet_version        "4.0.0 (Puppet Enterprise Shallow Gravy man!"
+     :payload {:puppet_version        "4.0.0 (Puppet Enterprise Shallow Gravy man!)"
                :report_format         5
                :start_time            (make-timestamp)
                :end_time              (make-timestamp)
@@ -207,9 +234,9 @@
                :configuration_version config-version
                :certname              name
                :resource_events       (make-events report-status)
-               :metrics               (make-metrics)
+               :metrics               (make-metrics noop?)
                :logs                  (make-logs report-status)
-               :noop                  false}}))
+               :noop                  noop?}}))
 
 (defn- post-command
   [pdb command]
