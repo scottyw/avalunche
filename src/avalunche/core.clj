@@ -1,5 +1,6 @@
 (ns avalunche.core
-  (:require [cheshire.core :as json]
+  (:require [avalunche.facts :refer [facts]]
+            [cheshire.core :as json]
             [clj-time.core :as time]
             [clj-time.format :as time-fmt]
             [puppetlabs.http.client.sync :as http])
@@ -8,8 +9,6 @@
            (org.joda.time DateTime DateTimeZone)))
 
 ;; Configuration options
-
-(def max-agents 50)                                         ; This defines the number of unique certnames that will be used
 
 (def average-events-per-report 10)                          ; On average, if a report is not unchanged it will have this many events
 
@@ -35,16 +34,24 @@
       (swap! ts #(- % 1000))
       #^DateTimeZone time/utc)))
 
-(defn- make-facts
+(defn- reset-timestamp
+  []
+  (time-fmt/unparse
+    (:date-time time-fmt/formatters)
+    (DateTime.
+      (swap! ts #(- % 1000))
+      #^DateTimeZone time/utc)))
+
+(defn- facts-command
   [name environment]
   {:command "replace facts"
    :version 4
    :payload {:certname           name
              :environment        environment
              :producer_timestamp (make-timestamp)
-             :values             {"foo" "bar"}}})
+             :values             (facts)}})
 
-(defn- make-catalog
+(defn- catalog-command
   [name environment uuid config-version]
   {:command "replace catalog"
    :version 6
@@ -216,18 +223,21 @@
 
 (defn- noop?
   []
-  (< (rand-int 100) 5))                                     ; 9% of reports are noop
+  (< (rand-int 100) 5))                                     ; 5% of reports are noop
 
-(defn- make-report
+(defn- report-command
   [name environment uuid config-version]
-  (let [noop?         (noop?)
+  (let [current       (swap! counter inc)
+        noop?         (noop?)
         report-status (make-report-status noop?)]
+    (if (= 0 (rem current 100))
+      (println "Submitted ... " current))
     {:command "store report"
      :version 5
      :payload {:puppet_version        "4.0.0 (Puppet Enterprise Shallow Gravy man!)"
                :report_format         5
+               :end_time              (reset-timestamp)
                :start_time            (make-timestamp)
-               :end_time              (make-timestamp)
                :transaction_uuid      uuid
                :status                report-status
                :environment           environment
@@ -246,20 +256,24 @@
             "Content-Type" "application/json"}
      :body (json/encode command)}))
 
-(defn- generate
-  [pdb]
-  (let [current        (swap! counter inc)
-        name           (format "agent%06d" (mod (swap! agent-id inc) max-agents))
+(defn- generate-agent
+  [pdb x]
+  (let [name           (format "agent%06d" (swap! agent-id inc))
         environment    (get environments (rand-int (count environments)))
         uuid           (UUID/randomUUID)
         config-version (str (quot (.getTime (Date.)) 1000))]
-    (if (<= current max-agents)
-      (do
-        (post-command pdb (make-facts name environment))
-        (post-command pdb (make-catalog name environment uuid config-version))))
-    (post-command pdb (make-report name environment uuid config-version))
-    (if (= 0 (rem current 100))
-      (println "Completed ... " current))))
+    (post-command pdb (facts-command name environment))
+    (post-command pdb (catalog-command name environment uuid config-version))
+    (doall
+      (repeatedly x #(post-command pdb (report-command name environment uuid config-version))))))
+
+(defn- generate-reports
+  [pdb x]
+  (if (> x 672)
+    (do
+      (generate-agent pdb 672)
+      (generate-reports pdb (- x 672)))
+    (generate-agent pdb x)))
 
 (defn -main
   "Launches Avalunche"
@@ -270,6 +284,5 @@
                        (second args)
                        "http://localhost:8080")]
     (println "Pushing" report-count "reports into" pdb)
-    (doall
-      (repeatedly report-count #(generate pdb))))
-  (println "Finished"))
+    (generate-reports pdb report-count)
+    (println "Finished")))
