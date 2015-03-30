@@ -20,46 +20,36 @@
 
 (def counter (atom 0))
 
-(def ts (atom (.getTime (Date.))))
-
 (def report-statuses ["changed", "noop", "failed"])
 
 (def environments ["production", "development", "test", "staging"])
 
 (defn- make-timestamp
-  []
+  [ts]
   (time-fmt/unparse
     (:date-time time-fmt/formatters)
-    (DateTime.
-      (swap! ts #(- % 1000))
-      #^DateTimeZone time/utc)))
+    (DateTime. ts
+               #^DateTimeZone time/utc)))
 
-(defn- reset-timestamp
-  []
-  (time-fmt/unparse
-    (:date-time time-fmt/formatters)
-    (DateTime.
-      (swap! ts #(- % 1000))
-      #^DateTimeZone time/utc)))
 
 (defn- facts-command
-  [name environment]
+  [name environment ts]
   {:command "replace facts"
    :version 4
    :payload {:certname           name
              :environment        environment
-             :producer_timestamp (make-timestamp)
+             :producer_timestamp (make-timestamp ts)
              :values             (facts)}})
 
 (defn- catalog-command
-  [name environment uuid config-version]
+  [name environment uuid config-version ts]
   {:command "replace catalog"
    :version 6
    :payload {:certname           name
              :environment        environment
              :version            config-version
              :transaction_uuid   uuid
-             :producer_timestamp (make-timestamp)
+             :producer_timestamp (make-timestamp ts)
              :edges              {}
              :resources          [{:exported   false
                                    :title      "/etc/apt/preferences.d/puppetlabs.pref"
@@ -74,8 +64,8 @@
                                    :file       "/Users/projects/manifests/foo.pp"}]}})
 
 (defn- make-event
-  [report-status]
-  (let [file           (str "/var/log/foo/" (UUID/randomUUID) " .log")
+  [report-status current-ts]
+  (let [file (str "/var/log/foo/" (UUID/randomUUID) " .log")
         event-statuses (case report-status
                          "noop" ["unchanged", "noop"]
                          "unchanged" ["unchanged"]
@@ -90,12 +80,15 @@
      :line             (inc (rand-int 200))
      :status           (get event-statuses (rand-int (count event-statuses)))
      :resource_type    "File"
-     :timestamp        (make-timestamp)
+     :timestamp        (make-timestamp current-ts)
      :message          "blah blah blah something happened"}))
 
 (defn- make-events
-  [report-status]
-  (vec (repeatedly (inc (rand-int (* 2 average-events-per-report))) #(make-event report-status))))
+  [report-status current-ts]
+  (let [event-count (case report-status
+                      "unchanged" 6
+                      (inc (rand-int (* 2 average-events-per-report))))]
+    (vec (repeatedly event-count #(make-event report-status current-ts)))))
 
 (defn- make-metrics
   [noop?]
@@ -184,7 +177,7 @@
             :name     "total"}])
         (let [failure-count (rand-int 100)
               success-count (rand-int 100)
-              total-count   (+ failure-count success-count)
+              total-count (+ failure-count success-count)
               ]
           [{:category "events"
             :value    failure-count
@@ -197,7 +190,7 @@
             :name     "total"}])))))
 
 (defn- make-log
-  []
+  [current-ts]
   (let [file (str "/var/log/foo/" (UUID/randomUUID) ".log")]
     {:file    file
      :line    (inc (rand-int 200))
@@ -205,14 +198,14 @@
      :message "This is a log message that says all is well"
      :source  "/opt/puppet/share/puppet/manifests/logs.pp"
      :tags    ["tag1", "tag2"]
-     :time    (make-timestamp)}))
+     :time    (make-timestamp current-ts)}))
 
 (defn- make-logs
-  [report-status]
+  [report-status current-ts]
   (let [log-count (case report-status
                     "unchanged" 6
                     (+ 6 (rand-int (* 2 average-logs-per-report))))]
-    (vec (repeatedly log-count #(make-log)))))
+    (vec (repeatedly log-count #(make-log current-ts)))))
 
 (defn- make-report-status
   [noop?]
@@ -226,46 +219,49 @@
   (< (rand-int 100) 5))                                     ; 5% of reports are noop
 
 (defn- report-command
-  [name environment uuid config-version]
-  (let [current       (swap! counter inc)
-        noop?         (noop?)
+  [name environment uuid config-version ts]
+  (let [current-ts @ts
+        current (swap! counter inc)
+        noop? (noop?)
         report-status (make-report-status noop?)]
+    (swap! ts #(- % 1800000))
     (if (= 0 (rem current 100))
       (println "Submitted ... " current))
     {:command "store report"
      :version 5
      :payload {:puppet_version        "4.0.0 (Puppet Enterprise Shallow Gravy man!)"
                :report_format         5
-               :end_time              (reset-timestamp)
-               :start_time            (make-timestamp)
+               :end_time              (make-timestamp current-ts)
+               :start_time            (make-timestamp (- current-ts 1000))
                :transaction_uuid      uuid
                :status                report-status
                :environment           environment
                :configuration_version config-version
                :certname              name
-               :resource_events       (make-events report-status)
+               :resource_events       (make-events report-status current-ts)
                :metrics               (make-metrics noop?)
-               :logs                  (make-logs report-status)
+               :logs                  (make-logs report-status current-ts)
                :noop                  noop?}}))
 
 (defn- post-command
   [pdb command]
   (http/post (str pdb "/v4/commands")
-    {:headers
-           {"Accept"       "application/json"
-            "Content-Type" "application/json"}
-     :body (json/encode command)}))
+             {:headers
+                    {"Accept"       "application/json"
+                     "Content-Type" "application/json"}
+              :body (json/encode command)}))
 
 (defn- generate-agent
   [pdb x]
-  (let [name           (format "agent%06d" (swap! agent-id inc))
-        environment    (get environments (rand-int (count environments)))
-        uuid           (UUID/randomUUID)
+  (let [name (format "agent%06d" (swap! agent-id inc))
+        ts (atom (.getTime (Date.)))
+        environment (get environments (rand-int (count environments)))
+        uuid (UUID/randomUUID)
         config-version (str (quot (.getTime (Date.)) 1000))]
-    (post-command pdb (facts-command name environment))
-    (post-command pdb (catalog-command name environment uuid config-version))
+    (post-command pdb (facts-command name environment @ts))
+    (post-command pdb (catalog-command name environment uuid config-version @ts))
     (doall
-      (repeatedly x #(post-command pdb (report-command name environment uuid config-version))))))
+      (repeatedly x #(post-command pdb (report-command name environment uuid config-version ts))))))
 
 (defn- generate-reports
   [pdb x]
@@ -280,9 +276,9 @@
   [& args]
   {:pre [(<= 1 (count args) 2)]}
   (let [report-count (read-string (first args))
-        pdb          (if (= 2 (count args))
-                       (second args)
-                       "http://localhost:8080")]
+        pdb (if (= 2 (count args))
+              (second args)
+              "http://localhost:8080")]
     (println "Pushing" report-count "reports into" pdb)
     (generate-reports pdb report-count)
     (println "Finished")))
