@@ -18,8 +18,6 @@
 
 (def agent-id (atom 0))
 
-(def counter (atom 0))
-
 (def report-statuses ["changed", "noop", "failed"])
 
 (def environments ["production", "development", "test", "staging"])
@@ -221,12 +219,9 @@
 (defn- report-command
   [name environment uuid config-version ts]
   (let [current-ts @ts
-        current (swap! counter inc)
         noop? (noop?)
         report-status (make-report-status noop?)]
     (swap! ts #(- % 1800000))
-    (if (= 0 (rem current 100))
-      (println "Submitted ... " current))
     {:command "store report"
      :version 5
      :payload {:puppet_version        "4.0.0 (Puppet Enterprise Shallow Gravy man!)"
@@ -261,24 +256,19 @@
     (post-command pdb (facts-command name environment @ts))
     (post-command pdb (catalog-command name environment uuid config-version @ts))
     (doall
-      (repeatedly x #(post-command pdb (report-command name environment uuid config-version ts))))))
-
-(defn- generate-reports
-  [pdb x]
-  (if (> x 672)
-    (do
-      (generate-agent pdb 672)
-      (generate-reports pdb (- x 672)))
-    (generate-agent pdb x)))
+      (repeatedly x #(post-command pdb (report-command name environment uuid config-version ts))))
+    (println "Submitted" x "reports against" name "...")))
 
 (defn -main
   "Launches Avalunche"
   [& args]
-  {:pre [(<= 1 (count args) 2)]}
-  (let [report-count (read-string (first args))
-        pdb (if (= 2 (count args))
-              (second args)
+  {:pre [(<= 2 (count args) 3)]}                            ; fixme error message here
+  (let [node-count (read-string (first args))
+        reports-per-node (read-string (second args))
+        pdb (if (= 3 (count args))
+              (nth args 2)
               "http://localhost:8080")]
-    (println "Pushing" report-count "reports into" pdb)
-    (generate-reports pdb report-count)
+    (println "Adding" reports-per-node "reports per node for" node-count "nodes")
+    (doall
+      (repeatedly node-count #(generate-agent pdb reports-per-node)))
     (println "Finished")))

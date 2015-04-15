@@ -8,25 +8,25 @@ hardcoded facts and catalogs are also included.
 
 If you're happy to edit the source you have some more options, which are listed at the top of the core namespace:
 
-    (def max-agents 200)                  ; This defines the number of unique certnames that will be used
-
     (def unchanged-report-percentage 95)  ; This percentage of reports (roughly) will be unchanged
 
     (def average-events-per-report 10)    ; On average, if a report is not unchanged it will have this many events
 
 ## Usage
 
-To create some number of reports on a PuppetDB instance located at http://localhost:8080:
+To create reports on a PuppetDB instance located at http://localhost:8080:
 
-    lein run *number-of-reports-to-create*
+    lein run <number-of-distinct-nodes> <number-of-reports-per-nodes>
 
-    e.g. lein run 1000
+To create 48 reports for each of 20 nodes, for a total of 960 reports:
 
-To create some number of reports on a PuppetDB instance located elsewhere:
+    e.g. lein run 20 48
 
-    lein run *number-of-reports-to-create* *puppetdb-url-prefix*
+To create reports on a PuppetDB instance located elsewhere:
 
-    e.g. lein run 1000 http://pe:8080
+    lein run <number-of-distinct-nodes> <number-of-reports-per-nodes> <puppetdb-prefix>
+
+    e.g. lein run 20 48 http://pe:8080
 
 Only the http interface of PuppetDB is supported, not https.
 
