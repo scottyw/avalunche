@@ -8,11 +8,9 @@
            (java.util Date)
            (org.joda.time DateTime DateTimeZone)))
 
-;; Configuration options
+;; Configuration option
 
-(def average-events-per-report 10)                          ; On average, if a report is not unchanged it will have this many events
-
-(def average-logs-per-report 10)                            ; On average, if a report is not unchanged it will have this many events
+(def average-events-per-report 50)                          ; On average, if a report is not unchanged it will have this many events
 
 ;;
 
@@ -28,7 +26,6 @@
     (:date-time time-fmt/formatters)
     (DateTime. ts
                #^DateTimeZone time/utc)))
-
 
 (defn- facts-command
   [name environment ts]
@@ -63,21 +60,26 @@
 
 (defn- make-event
   [report-status current-ts]
-  (let [file (str "/var/log/foo/" (UUID/randomUUID) " .log")
+  (let [resource-type (get ["File" "Service" "Package"] (rand-int 3))
+        resource-title (str resource-type (rand-int 10))
         event-statuses (case report-status
                          "noop" ["unchanged", "noop"]
                          "unchanged" ["unchanged"]
                          "changed" ["unchanged", "changed"]
-                         "failed" ["unchanged", "changed", "skipped", "failed"])]
-    {:containment_path ["Stage[main]" "Puppet_enterprise::Server::Logs" (str "File[" file "]")]
+                         "failed" ["unchanged", "changed", "skipped", "failed"])
+        pp-files ["/opt/puppet/share/puppet/manifests/logs1.pp"
+                  "/opt/puppet/share/puppet/manifests/logs2.pp"
+                  "/opt/puppet/share/puppet/manifests/logs3.pp"
+                  "/opt/puppet/share/puppet/manifests/logs4.pp"]]
+    {:containment_path [(str "Stage[" resource-type "]") (str "Puppet_enterprise::Server::" resource-type) (str resource-type "[" resource-title "]")]
      :new_value        "present"
-     :resource_title   file
+     :resource_title   resource-title
      :property         "ensure"
-     :file             "/opt/puppet/share/puppet/manifests/logs.pp"
+     :file             (get pp-files (rand-int (count pp-files)))
      :old_value        "absent"
      :line             (inc (rand-int 200))
      :status           (get event-statuses (rand-int (count event-statuses)))
-     :resource_type    "File"
+     :resource_type    resource-type
      :timestamp        (make-timestamp current-ts)
      :message          "blah blah blah something happened"}))
 
@@ -157,8 +159,7 @@
         :name     "total"}
        {:category "changes"
         :value    (rand-int 100)
-        :name     "total"
-        }]
+        :name     "total"}]
       (if noop?
         (let [noop-count (rand-int 100)]
           [{:category "events"
@@ -175,8 +176,7 @@
             :name     "total"}])
         (let [failure-count (rand-int 100)
               success-count (rand-int 100)
-              total-count (+ failure-count success-count)
-              ]
+              total-count (+ failure-count success-count)]
           [{:category "events"
             :value    failure-count
             :name     "failure"}
@@ -202,25 +202,21 @@
   [report-status current-ts]
   (let [log-count (case report-status
                     "unchanged" 6
-                    (+ 6 (rand-int (* 2 average-logs-per-report))))]
+                    (+ 6 (rand-int (* 2 average-events-per-report))))]
     (vec (repeatedly log-count #(make-log current-ts)))))
 
 (defn- make-report-status
-  [noop?]
-  (if noop? "noop")
+  []
   (if (< (rand-int 100) 95)                                 ; 95% of reports are unchanged
     "unchanged"
     (get report-statuses (rand-int (count report-statuses)))))
 
-(defn- noop?
-  []
-  (< (rand-int 100) 5))                                     ; 5% of reports are noop
 
 (defn- report-command
   [name environment uuid config-version ts]
   (let [current-ts @ts
-        noop? (noop?)
-        report-status (make-report-status noop?)]
+        report-status (make-report-status)
+        noop? (= report-status "noop")]
     (swap! ts #(- % 1800000))
     {:command "store report"
      :version 5
@@ -247,9 +243,9 @@
               :body (json/encode command)}))
 
 (defn- generate-agent
-  [pdb x]
+  [pdb x now]
   (let [name (format "agent%06d" (swap! agent-id inc))
-        ts (atom (.getTime (Date.)))
+        ts (atom now)
         environment (get environments (rand-int (count environments)))
         uuid (UUID/randomUUID)
         config-version (str (quot (.getTime (Date.)) 1000))]
@@ -262,13 +258,15 @@
 (defn -main
   "Launches Avalunche"
   [& args]
-  {:pre [(<= 2 (count args) 3)]}                            ; fixme error message here
-  (let [node-count (read-string (first args))
-        reports-per-node (read-string (second args))
-        pdb (if (= 3 (count args))
-              (nth args 2)
-              "http://localhost:8080")]
-    (println "Adding" reports-per-node "reports per node for" node-count "nodes")
-    (doall
-      (repeatedly node-count #(generate-agent pdb reports-per-node)))
-    (println "Finished")))
+  (if-not (<= 2 (count args) 3)
+    (println "Usage: lein run <number-of-distinct-nodes> <number-of-reports-per-nodes> [<optional-puppetdb-prefix>]")
+    (let [now (.getTime (Date.))
+          node-count (read-string (first args))
+          reports-per-node (read-string (second args))
+          pdb (if (= 3 (count args))
+                (nth args 2)
+                "http://localhost:8080")]
+      (println "Adding" reports-per-node "reports per node for" node-count "nodes")
+      (doall
+        (repeatedly node-count #(generate-agent pdb reports-per-node now)))
+      (println "Finished"))))
