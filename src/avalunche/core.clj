@@ -14,8 +14,6 @@
 
 ;;
 
-(def agent-id (atom 0))
-
 (def report-statuses ["changed", "noop", "failed"])
 
 (def environments ["production", "development", "test", "staging"])
@@ -59,9 +57,9 @@
                                    :file       "/Users/projects/manifests/foo.pp"}]}})
 
 (defn- make-event
-  [report-status current-ts]
+  [report-status current-ts event-id]
   (let [resource-type (get ["File" "Service" "Package"] (rand-int 3))
-        resource-title (str resource-type (rand-int 10))
+        resource-title (str resource-type "[" event-id "]")
         event-statuses (case report-status
                          "noop" ["unchanged", "noop"]
                          "unchanged" ["unchanged"]
@@ -71,7 +69,7 @@
                   "/opt/puppet/share/puppet/manifests/logs2.pp"
                   "/opt/puppet/share/puppet/manifests/logs3.pp"
                   "/opt/puppet/share/puppet/manifests/logs4.pp"]]
-    {:containment_path [(str "Stage[" resource-type "]") (str "Puppet_enterprise::Server::" resource-type) (str resource-type "[" resource-title "]")]
+    {:containment_path [(str "Stage[" resource-type "]") (str "Puppet_enterprise::Server::" resource-type) resource-title]
      :new_value        "present"
      :resource_title   resource-title
      :property         "ensure"
@@ -85,10 +83,11 @@
 
 (defn- make-events
   [report-status current-ts]
-  (let [event-count (case report-status
+  (let [event-id (atom 0)
+        event-count (case report-status
                       "unchanged" 6
                       (inc (rand-int (* 2 average-events-per-report))))]
-    (vec (repeatedly event-count #(make-event report-status current-ts)))))
+    (vec (repeatedly event-count #(make-event report-status current-ts (swap! event-id inc))))))
 
 (defn- make-metrics
   [noop?]
@@ -243,8 +242,8 @@
               :body (json/encode command)}))
 
 (defn- generate-agent
-  [pdb x now]
-  (let [name (format "agent%06d" (swap! agent-id inc))
+  [pdb agent-id x now]
+  (let [name (format "agent%06d" agent-id)
         ts (atom now)
         environment (get environments (rand-int (count environments)))
         uuid (UUID/randomUUID)
@@ -260,7 +259,8 @@
   [& args]
   (if-not (<= 2 (count args) 3)
     (println "Usage: lein run <number-of-distinct-nodes> <number-of-reports-per-nodes> [<optional-puppetdb-prefix>]")
-    (let [now (.getTime (Date.))
+    (let [agent-id (atom 0)
+          now (.getTime (Date.))
           node-count (read-string (first args))
           reports-per-node (read-string (second args))
           pdb (if (= 3 (count args))
@@ -268,5 +268,5 @@
                 "http://localhost:8080")]
       (println "Adding" reports-per-node "reports per node for" node-count "nodes")
       (doall
-        (repeatedly node-count #(generate-agent pdb reports-per-node now)))
+        (repeatedly node-count #(generate-agent pdb (swap! agent-id inc) reports-per-node now)))
       (println "Finished"))))
