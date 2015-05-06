@@ -45,16 +45,38 @@
              :producer_timestamp (make-timestamp ts)
              :edges              {}
              :resources          [{:exported   false
-                                   :title      "/etc/apt/preferences.d/puppetlabs.pref"
+                                   :title      "Service[1]"
                                    :line       60
                                    :parameters {"group"  "root"
                                                 :mode    "0644",
                                                 :content "Package: *\nPin: origin \"apt.puppetlabs.com\"\nPin-Priority: 900\n",
                                                 :ensure  "present",
                                                 :owner   "root"}
-                                   :tags       ["file", "apt::pin", "apt", "pin", "puppetlabs", "class", "os::linux::debian", "os", "linux", "debian", "os::linux", "role::base", "role", "base", "role::server", "server", "node", "myhost.localdomain"]
+                                   :tags       ["role::server", "server"]
+                                   :type       "Service"
+                                   :file       "/Users/projects/manifests/foo1.pp"}
+                                  {:exported   false
+                                   :title      "File[2]"
+                                   :line       260
+                                   :parameters {"group"  "root"
+                                                :mode    "0644",
+                                                :content "Package: *\nPin: origin \"apt.puppetlabs.com\"\nPin-Priority: 900\n",
+                                                :ensure  "present",
+                                                :owner   "root"}
+                                   :tags       ["role::server", "server"]
                                    :type       "File"
-                                   :file       "/Users/projects/manifests/foo.pp"}]}})
+                                   :file       "/Users/projects/manifests/foo2.pp"}
+                                  {:exported   false
+                                   :title      "Service[2]"
+                                   :line       360
+                                   :parameters {"group"  "root"
+                                                :mode    "0644",
+                                                :content "Package: *\nPin: origin \"apt.puppetlabs.com\"\nPin-Priority: 900\n",
+                                                :ensure  "present",
+                                                :owner   "root"}
+                                   :tags       ["role::server", "server"]
+                                   :type       "Service"
+                                   :file       "/Users/projects/manifests/foo3.pp"}]}})
 
 (defn- make-event
   [report-status current-ts event-id]
@@ -244,7 +266,7 @@
 (defn- generate-agent
   [pdb agent-id x now]
   (let [name (format "agent%06d" agent-id)
-        ts (atom now)
+        ts (atom (- now 60000))                             ; Slightly randomize time
         environment (get environments (rand-int (count environments)))
         uuid (UUID/randomUUID)
         config-version (str (quot (.getTime (Date.)) 1000))]
