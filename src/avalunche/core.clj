@@ -43,7 +43,16 @@
              :version            config-version
              :transaction_uuid   uuid
              :producer_timestamp (make-timestamp ts)
-             :edges              {}
+             :edges              [{:relationship "contains"
+                                   :target       {:title "Service[1]"
+                                                  :type  "Service"}
+                                   :source       {:title "File[2]"
+                                                  :type  "File"}}
+                                  {:relationship "contains"
+                                   :target       {:title "Service[2]"
+                                                  :type  "Service"}
+                                   :source       {:title "File[2]"
+                                                  :type  "File"}}]
              :resources          [{:exported   false
                                    :title      "Service[1]"
                                    :line       60
