@@ -1,5 +1,6 @@
 (ns avalunche.core
   (:require [avalunche.facts :refer [facts]]
+            [avalunche.catalog :refer [catalog]]
             [cheshire.core :as json]
             [clj-time.core :as time]
             [clj-time.format :as time-fmt]
@@ -18,7 +19,7 @@
 
 (def environments ["production", "development", "test", "staging"])
 
-(defn- make-timestamp
+(defn make-timestamp
   [ts]
   (time-fmt/unparse
     (:date-time time-fmt/formatters)
@@ -38,64 +39,16 @@
   [name environment uuid config-version ts]
   {:command "replace catalog"
    :version 6
-   :payload {:certname           name
-             :environment        environment
-             :version            config-version
-             :transaction_uuid   uuid
-             :producer_timestamp (make-timestamp ts)
-             :edges              [{:relationship "contains"
-                                   :target       {:title "Service[1]"
-                                                  :type  "Service"}
-                                   :source       {:title "File[2]"
-                                                  :type  "File"}}
-                                  {:relationship "contains"
-                                   :target       {:title "Service[2]"
-                                                  :type  "Service"}
-                                   :source       {:title "File[2]"
-                                                  :type  "File"}}]
-             :resources          [{:exported   false
-                                   :title      "Service[1]"
-                                   :line       60
-                                   :parameters {"group"  "root"
-                                                :mode    "0644",
-                                                :content "Package: *\nPin: origin \"apt.puppetlabs.com\"\nPin-Priority: 900\n",
-                                                :ensure  "present",
-                                                :owner   "root"}
-                                   :tags       ["role::server", "server"]
-                                   :type       "Service"
-                                   :file       "/Users/projects/manifests/foo1.pp"}
-                                  {:exported   false
-                                   :title      "File[2]"
-                                   :line       260
-                                   :parameters {"group"  "root"
-                                                :mode    "0644",
-                                                :content "Package: *\nPin: origin \"apt.puppetlabs.com\"\nPin-Priority: 900\n",
-                                                :ensure  "present",
-                                                :owner   "root"}
-                                   :tags       ["role::server", "server"]
-                                   :type       "File"
-                                   :file       "/Users/projects/manifests/foo2.pp"}
-                                  {:exported   false
-                                   :title      "Service[2]"
-                                   :line       360
-                                   :parameters {"group"  "root"
-                                                :mode    "0644",
-                                                :content "Package: *\nPin: origin \"apt.puppetlabs.com\"\nPin-Priority: 900\n",
-                                                :ensure  "present",
-                                                :owner   "root"}
-                                   :tags       ["role::server", "server"]
-                                   :type       "Service"
-                                   :file       "/Users/projects/manifests/foo3.pp"}]}})
+   :payload (catalog name environment config-version uuid (make-timestamp ts))})
 
 (defn- make-event
   [report-status current-ts event-id]
   (let [resource-type (get ["File" "Service" "Package"] (rand-int 3))
         resource-title (str resource-type "[" event-id "]")
         event-statuses (case report-status
-                         "noop" ["unchanged", "noop"]
-                         "unchanged" ["unchanged"]
-                         "changed" ["unchanged", "changed"]
-                         "failed" ["unchanged", "changed", "skipped", "failed"])
+                         "noop" ["noop"]
+                         "changed" ["changed"]
+                         "failed" ["unchanged" "changed" "skipped" "failed"])
         pp-files ["/opt/puppet/share/puppet/manifests/logs1.pp"
                   "/opt/puppet/share/puppet/manifests/logs2.pp"
                   "/opt/puppet/share/puppet/manifests/logs3.pp"
@@ -114,11 +67,10 @@
 
 (defn- make-events
   [report-status current-ts]
-  (let [event-id (atom 0)
-        event-count (case report-status
-                      "unchanged" 6
-                      (inc (rand-int (* 2 average-events-per-report))))]
-    (vec (repeatedly event-count #(make-event report-status current-ts (swap! event-id inc))))))
+  (if-not (= report-status "unchanged")
+    (let [event-id (atom 0)
+          event-count (inc (rand-int (* 2 average-events-per-report)))]
+      (vec (repeatedly event-count #(make-event report-status current-ts (swap! event-id inc)))))))
 
 (defn- make-metrics
   [noop?]
