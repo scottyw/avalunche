@@ -206,6 +206,7 @@
                :report_format         5
                :end_time              (make-timestamp current-ts)
                :start_time            (make-timestamp (- current-ts 1000))
+               :producer_timestamp    (make-timestamp current-ts)
                :transaction_uuid      uuid
                :status                report-status
                :environment           environment
