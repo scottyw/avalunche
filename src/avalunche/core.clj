@@ -219,11 +219,12 @@
 
 (defn- post-command
   [pdb command]
-  (http/post (str pdb "/v4/commands")
-             {:headers
-                    {"Accept"       "application/json"
-                     "Content-Type" "application/json"}
-              :body (json/encode command)}))
+  (let [response (http/post (str pdb "/pdb/query/v4/commands")
+                            {:headers
+                                   {"Accept"       "application/json"
+                                    "Content-Type" "application/json"}
+                             :body (json/encode command)})]
+    (if (not= 200 (:status response)) (println "Unexpected response: " response))))
 
 (defn- generate-agent
   [pdb agent-id x now]
