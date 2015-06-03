@@ -73,7 +73,7 @@
                                          :distrelease      6.5
                                          :majdistrelease   6
                                          :minordistrelease 5}}
-   :osfamily                  (get-in (rand-int 7) ["RedHat1", "RedHat2", "RedHat3", "RedHat4", "RedHat5", "RedHat6", "RedHat7"])
+   :osfamily                  (str "RedHat" (rand-int 7))
    :partitions                {:sda1 {
                                       :uuid       "cf270c46-ea33-46d7-904a-66c8647060e8"
                                       :size       1024000
