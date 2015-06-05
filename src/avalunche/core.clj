@@ -219,7 +219,7 @@
 
 (defn- post-command
   [pdb command]
-  (let [response (http/post (str pdb "/pdb/query/v4/commands")
+  (let [response (http/post (str pdb "/pdb/cmd/v1/commands")
                             {:headers
                                    {"Accept"       "application/json"
                                     "Content-Type" "application/json"}
