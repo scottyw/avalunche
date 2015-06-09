@@ -11,7 +11,7 @@
 
 ;; Configuration option
 
-(def average-events-per-report 50)                          ; On average, if a report is not unchanged it will have this many events
+(def average-resource-per-report 100)
 
 ;;
 
@@ -26,6 +26,32 @@
     (DateTime. ts
                #^DateTimeZone time/utc)))
 
+(defn- generate-event-status
+  [report-status]
+  (case report-status
+    "unchanged" "unchanged"
+    "noop" (get ["unchanged" "noop"] (rand-int 2))
+    "changed" (get ["unchanged" "success"] (rand-int 2))
+    "failed" (get ["unchanged" "success" "skipped" "failure"] (rand-int 4))))
+
+(defn- required-event-status
+  [report-status]
+  (case report-status
+    "unchanged" "unchanged"
+    "noop" "noop"
+    "changed" "success"
+    "failed" "failure"))
+
+(defn- generate-resources
+  [total report-status]
+  (let [i (atom 0)]
+    (repeatedly total
+                (fn []
+                  (let [type (get ["Service" "File" "Package"] (rand-int 3))]
+                    {:resource_title (str type "[" (swap! i inc) "]")
+                     :resource_type  type
+                     :status         (if (= @i 1) (required-event-status report-status) (generate-event-status report-status))})))))
+
 (defn- facts-command
   [name environment ts]
   {:command "replace facts"
@@ -36,41 +62,36 @@
              :values             (facts)}})
 
 (defn- catalog-command
-  [name environment uuid config-version ts]
+  [resources name environment uuid config-version ts]
   {:command "replace catalog"
    :version 6
-   :payload (catalog name environment config-version uuid (make-timestamp ts))})
+   :payload (catalog resources name environment config-version uuid (make-timestamp ts))})
+
+(def pp-files ["/opt/puppet/share/puppet/manifests/logs1.pp"
+               "/opt/puppet/share/puppet/manifests/logs2.pp"
+               "/opt/puppet/share/puppet/manifests/logs3.pp"
+               "/opt/puppet/share/puppet/manifests/logs4.pp"])
 
 (defn- make-event
-  [report-status current-ts event-id]
-  (let [resource-type (get ["File" "Service" "Package"] (rand-int 3))
-        resource-title (str resource-type "[" event-id "]")
-        event-statuses (case report-status
-                         "noop" ["noop"]
-                         "changed" ["changed"]
-                         "failed" ["unchanged" "changed" "skipped" "failed"])
-        pp-files ["/opt/puppet/share/puppet/manifests/logs1.pp"
-                  "/opt/puppet/share/puppet/manifests/logs2.pp"
-                  "/opt/puppet/share/puppet/manifests/logs3.pp"
-                  "/opt/puppet/share/puppet/manifests/logs4.pp"]]
-    {:containment_path [(str "Stage[" resource-type "]") (str "Puppet_enterprise::Server::" resource-type) resource-title]
+  [resource current-ts]
+  (let [{:keys [status resource_type resource_title]} resource]
+    {:containment_path [(str "Stage[" resource_type "]") (str "Puppet_enterprise::Server::" resource_type) resource_title]
      :new_value        "present"
-     :resource_title   resource-title
+     :resource_title   resource_title
      :property         "ensure"
      :file             (get pp-files (rand-int (count pp-files)))
      :old_value        "absent"
      :line             (inc (rand-int 200))
-     :status           (get event-statuses (rand-int (count event-statuses)))
-     :resource_type    resource-type
+     :status           status
+     :resource_type    resource_type
      :timestamp        (make-timestamp current-ts)
-     :message          "blah blah blah something happened"}))
+     :message          "An event occurred"}))
 
 (defn- make-events
-  [report-status current-ts]
-  (if-not (= report-status "unchanged")
-    (let [event-id (atom 0)
-          event-count (inc (rand-int (* 2 average-events-per-report)))]
-      (vec (repeatedly event-count #(make-event report-status current-ts (swap! event-id inc)))))))
+  [resources current-ts]
+  (->> resources
+       (filter #(not= "unchanged" (:status %)))
+       (map #(make-event % current-ts))))
 
 (defn- make-metrics
   [noop?]
@@ -184,20 +205,18 @@
   [report-status current-ts]
   (let [log-count (case report-status
                     "unchanged" 6
-                    (+ 6 (rand-int (* 2 average-events-per-report))))]
+                    (+ 1 (rand-int 100)))]
     (vec (repeatedly log-count #(make-log current-ts)))))
 
 (defn- make-report-status
   []
-  (if (< (rand-int 100) 95)                                 ; 95% of reports are unchanged
+  (if (< (rand-int 100) 10)                                 ; 95% of reports are unchanged
     "unchanged"
     (get report-statuses (rand-int (count report-statuses)))))
 
-
 (defn- report-command
-  [name environment uuid config-version ts]
+  [resources report-status name environment uuid config-version ts]
   (let [current-ts @ts
-        report-status (make-report-status)
         noop? (= report-status "noop")]
     (swap! ts #(- % 1800000))
     {:command "store report"
@@ -212,7 +231,7 @@
                :environment           environment
                :configuration_version config-version
                :certname              name
-               :resource_events       (make-events report-status current-ts)
+               :resource_events       (make-events resources current-ts)
                :metrics               (make-metrics noop?)
                :logs                  (make-logs report-status current-ts)
                :noop                  noop?}}))
@@ -232,11 +251,13 @@
         ts (atom (- now 60000))                             ; Slightly randomize time
         environment (get environments (rand-int (count environments)))
         uuid (UUID/randomUUID)
-        config-version (str (quot (.getTime (Date.)) 1000))]
+        config-version (str (quot (.getTime (Date.)) 1000))
+        report-status (make-report-status)
+        resources (generate-resources (+ average-resource-per-report (rand-int 80) -40) report-status)]
     (post-command pdb (facts-command name environment @ts))
-    (post-command pdb (catalog-command name environment uuid config-version @ts))
+    (post-command pdb (catalog-command resources name environment uuid config-version @ts))
     (doall
-      (repeatedly x #(post-command pdb (report-command name environment uuid config-version ts))))
+      (repeatedly x #(post-command pdb (report-command resources report-status name environment uuid config-version ts))))
     (println "Submitted" x "reports against" name "...")))
 
 (defn -main
