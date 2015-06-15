@@ -15,8 +15,6 @@
 
 ;;
 
-(def report-statuses ["changed", "noop", "failed"])
-
 (def environments ["production", "development", "test", "staging"])
 
 (defn make-timestamp
@@ -27,30 +25,30 @@
                #^DateTimeZone time/utc)))
 
 (defn- generate-event-status
-  [report-status]
-  (case report-status
-    "unchanged" "unchanged"
-    "noop" (get ["unchanged" "noop"] (rand-int 2))
-    "changed" (get ["unchanged" "success"] (rand-int 2))
-    "failed" (get ["unchanged" "success" "skipped" "failure"] (rand-int 4))))
+  [desired-status]
+  (case desired-status
+    :unchanged "unchanged"
+    :noop (get ["unchanged" "noop"] (rand-int 2))
+    :changed (get ["unchanged" "success"] (rand-int 2))
+    :failed (get ["unchanged" "success" "skipped" "failure"] (rand-int 4))))
 
 (defn- required-event-status
-  [report-status]
-  (case report-status
-    "unchanged" "unchanged"
-    "noop" "noop"
-    "changed" "success"
-    "failed" "failure"))
+  [desired-status]
+  (case desired-status
+    :unchanged "unchanged"
+    :noop "unchanged"
+    :changed "success"
+    :failed "failure"))
 
 (defn- generate-resources
-  [total report-status]
+  [total desired-status]
   (let [i (atom 0)]
     (repeatedly total
                 (fn []
                   (let [type (get ["Service" "File" "Package"] (rand-int 3))]
                     {:resource_title (str type "[" (swap! i inc) "]")
                      :resource_type  type
-                     :status         (if (= @i 1) (required-event-status report-status) (generate-event-status report-status))})))))
+                     :status         (if (= @i 1) (required-event-status desired-status) (generate-event-status desired-status))})))))
 
 (defn- facts-command
   [name environment ts]
@@ -202,22 +200,25 @@
      :time    (make-timestamp current-ts)}))
 
 (defn- make-logs
-  [report-status current-ts]
-  (let [log-count (case report-status
-                    "unchanged" 6
+  [desired-status current-ts]
+  (let [log-count (case desired-status
+                    :unchanged 6
                     (+ 1 (rand-int 100)))]
     (vec (repeatedly log-count #(make-log current-ts)))))
 
-(defn- make-report-status
+(defn- choose-status
   []
-  (if (< (rand-int 100) 10)                                 ; 95% of reports are unchanged
-    "unchanged"
-    (get report-statuses (rand-int (count report-statuses)))))
+  (condp > (rand-int 1000)
+    950 :unchanged                                          ; 95% of reports are unchanged
+    960 :noop                                               ; 20% of reports that aren't unchanged are noop (i.e. 20% of the remaining 5%)
+    970 :failed                                             ; 20% of reports that aren't unchanged are failed (i.e. 20% of the remaining 5%)
+    1000 :changed                                           ; 60% of reports that aren't unchanged are changed (i.e. 60% of the remaining 5%)
+    ))
 
 (defn- report-command
-  [resources report-status name environment uuid config-version ts]
+  [resources desired-status name environment uuid config-version ts]
   (let [current-ts @ts
-        noop? (= report-status "noop")]
+        noop? (= desired-status :noop)]
     (swap! ts #(- % 1800000))
     {:command "store report"
      :version 5
@@ -227,13 +228,13 @@
                :start_time            (make-timestamp (- current-ts 1000))
                :producer_timestamp    (make-timestamp current-ts)
                :transaction_uuid      uuid
-               :status                report-status
+               :status                (if noop? "unchanged" desired-status)
                :environment           environment
                :configuration_version config-version
                :certname              name
                :resource_events       (make-events resources current-ts)
                :metrics               (make-metrics noop?)
-               :logs                  (make-logs report-status current-ts)
+               :logs                  (make-logs desired-status current-ts)
                :noop                  noop?}}))
 
 (defn- post-command
@@ -252,12 +253,12 @@
         environment (get environments (rand-int (count environments)))
         uuid (UUID/randomUUID)
         config-version (str (quot (.getTime (Date.)) 1000))
-        report-status (make-report-status)
-        resources (generate-resources (+ average-resource-per-report (rand-int 80) -40) report-status)]
+        desired-status (choose-status)
+        resources (generate-resources (+ average-resource-per-report (rand-int 80) -40) desired-status)]
     (post-command pdb (facts-command name environment @ts))
     (post-command pdb (catalog-command resources name environment uuid config-version @ts))
     (doall
-      (repeatedly x #(post-command pdb (report-command resources report-status name environment uuid config-version ts))))
+      (repeatedly x #(post-command pdb (report-command resources desired-status name environment uuid config-version ts))))
     (println "Submitted" x "reports against" name "...")))
 
 (defn -main
