@@ -11,7 +11,7 @@
 
 ;; Configuration option
 
-(def average-resource-per-report 100)
+(def average-resource-per-report 500)
 
 ;;
 
@@ -24,18 +24,10 @@
     (DateTime. ts
                #^DateTimeZone time/utc)))
 
-(defn- generate-event-status
-  [desired-status]
-  (case desired-status
-    :unchanged "unchanged"
-    :noop (get ["unchanged" "noop"] (rand-int 2))
-    :changed (get ["unchanged" "success"] (rand-int 2))
-    :failed (get ["unchanged" "success" "skipped" "failure"] (rand-int 4))))
-
 (defn- required-event-status
   [desired-status]
   (case desired-status
-    :unchanged "unchanged"
+    ;:unchanged "unchanged"
     :noop "unchanged"
     :changed "success"
     :failed "failure"))
@@ -48,7 +40,7 @@
                   (let [type (get ["Service" "File" "Package"] (rand-int 3))]
                     {:resource_title (str type "[" (swap! i inc) "]")
                      :resource_type  type
-                     :status         (if (= @i 1) (required-event-status desired-status) (generate-event-status desired-status))})))))
+                     :status         (if (= @i 1) (required-event-status desired-status) (required-event-status desired-status))})))))
 
 (defn- facts-command
   [name environment ts]
@@ -209,10 +201,10 @@
 (defn- choose-status
   []
   (condp > (rand-int 1000)
-    950 :unchanged                                          ; 95% of reports are unchanged
-    960 :noop                                               ; 20% of reports that aren't unchanged are noop (i.e. 20% of the remaining 5%)
-    970 :failed                                             ; 20% of reports that aren't unchanged are failed (i.e. 20% of the remaining 5%)
-    1000 :changed                                           ; 60% of reports that aren't unchanged are changed (i.e. 60% of the remaining 5%)
+    ;700 :unchanged                                          ; 70% of reports are unchanged
+    800 :noop                                               ; 10% of reports are noop
+    850 :failed                                             ; 5% of reports are failed
+    1000 :changed                                           ; 15% of reports that are changed
     ))
 
 (defn- report-command
@@ -257,8 +249,9 @@
         resources (generate-resources (+ average-resource-per-report (rand-int 80) -40) desired-status)]
     (post-command pdb (facts-command name environment @ts))
     (post-command pdb (catalog-command resources name environment uuid config-version @ts))
+    (post-command pdb (report-command resources desired-status name environment uuid config-version ts))
     (doall
-      (repeatedly x #(post-command pdb (report-command resources desired-status name environment uuid config-version ts))))
+      (repeatedly (dec x) #(post-command pdb (report-command (generate-resources average-resource-per-report desired-status) desired-status name environment uuid config-version ts))))
     (println "Submitted" x "reports against" name "...")))
 
 (defn -main
