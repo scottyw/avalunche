@@ -209,9 +209,9 @@
 (defn- choose-status
   []
   (condp > (rand-int 1000)
-    950 :unchanged                                          ; 95% of reports are unchanged
-    960 :noop                                               ; 20% of reports that aren't unchanged are noop (i.e. 20% of the remaining 5%)
-    970 :failed                                             ; 20% of reports that aren't unchanged are failed (i.e. 20% of the remaining 5%)
+    500 :unchanged                                          ; 95% of reports are unchanged
+    650 :noop                                               ; 20% of reports that aren't unchanged are noop (i.e. 20% of the remaining 5%)
+    750 :failed                                             ; 20% of reports that aren't unchanged are failed (i.e. 20% of the remaining 5%)
     1000 :changed                                           ; 60% of reports that aren't unchanged are changed (i.e. 60% of the remaining 5%)
     ))
 
