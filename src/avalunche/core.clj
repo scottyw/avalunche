@@ -249,7 +249,7 @@
 (defn- generate-agent
   [pdb agent-id x now]
   (let [name (format "agent%06d" agent-id)
-        ts (atom (- now 60000))                             ; Slightly randomize time
+        ts (atom (- now (rand-int 60000)))                  ; Slightly randomize time
         environment (get environments (rand-int (count environments)))
         uuid (UUID/randomUUID)
         config-version (str (quot (.getTime (Date.)) 1000))
