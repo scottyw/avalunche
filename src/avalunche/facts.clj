@@ -3,30 +3,30 @@
 
 (defn facts
   []
-  {:architecture              "x86_64"
-   :augeasversion             "1.2.0"
-   :bios_release_date         "07/31/2013"
-   :bios_vendor               "Phoenix Technologies LTD"
-   :bios_version              "6.00"
-   :blockdevice_sda_model     "VMware Virtual S"
-   :blockdevice_sda_size      "21474836480"
-   :blockdevice_sda_vendor    "VMware,"
-   :blockdevice_sr0_model     "VMware IDE CDR10"
-   :blockdevice_sr0_size      "1073741312"
-   :blockdevice_sr0_vendor    "NECVMWar"
-   :blockdevices              "sda,sr0"
-   :boardmanufacturer         "Intel Corporation"
-   :boardproductname          "440BX Desktop Reference Platform"
-   :boardserialnumber         "None"
-   :facterversion             "2.3.0"
-   :filesystems               "ext4,iso9660"
-   :fqdn                      "pe"
-   :gid                       "root"
-   :hardwareisa               "x86_64"
-   :hardwaremodel             "x86_64"
-   :hostname                  "pe"
-   :id                        "root"
-   :interfaces                "eth0,lo,pan0"
+  {:architecture              (str "x86_64" (rand-int 200))
+   :augeasversion             (str "1.2.0" (rand-int 200))
+   :bios_release_date         (str "07/31/2013" (rand-int 200))
+   :bios_vendor               (str "Phoenix Technologies LTD" (rand-int 200))
+   :bios_version              (str "6.00" (rand-int 200))
+   :blockdevice_sda_model     (str "VMware Virtual S" (rand-int 200))
+   :blockdevice_sda_size      (str "21474836480" (rand-int 200))
+   :blockdevice_sda_vendor    (str "VMware," (rand-int 200))
+   :blockdevice_sr0_model     (str "VMware IDE CDR10" (rand-int 200))
+   :blockdevice_sr0_size      (str "1073741312" (rand-int 200))
+   :blockdevice_sr0_vendor    (str "NECVMWar" (rand-int 200))
+   :blockdevices              (str "sda,sr0" (rand-int 200))
+   :boardmanufacturer         (str "Intel Corporation" (rand-int 200))
+   :boardproductname          (str "440BX Desktop Reference Platform" (rand-int 200))
+   :boardserialnumber         (str "None" (rand-int 200))
+   :facterversion             (str "2.3.0" (rand-int 200))
+   :filesystems               (str "ext4,iso9660" (rand-int 200))
+   :fqdn                      (str "pe" (rand-int 200))
+   :gid                       (str "root" (rand-int 200))
+   :hardwareisa               (str "x86_64" (rand-int 200))
+   :hardwaremodel             (str "x86_64" (rand-int 200))
+   :hostname                  (str "pe" (rand-int 200))
+   :id                        (str "root" (rand-int 200))
+   :interfaces                (str "eth0,lo,pan0" (rand-int 200))
    :ipaddress                 (str "192.168.13." (rand-int 200))
    :ipaddress_eth0            (str "192.168.13." (rand-int 200))
    :ipaddress_lo              "127.0.0.1"

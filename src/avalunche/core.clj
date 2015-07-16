@@ -246,6 +246,12 @@
                              :body (json/encode command)})]
     (if (not= 200 (:status response)) (println "Unexpected response: " response))))
 
+(defn- generate-puppet-run
+  [pdb name environment ts resources uuid config-version desired-status]
+  (post-command pdb (facts-command name environment @ts))
+  (post-command pdb (catalog-command resources name environment uuid config-version @ts))
+  (post-command pdb (report-command resources desired-status name environment uuid config-version ts)))
+
 (defn- generate-agent
   [pdb agent-id x now]
   (let [name (format "agent%06d" agent-id)
@@ -255,10 +261,7 @@
         config-version (str (quot (.getTime (Date.)) 1000))
         desired-status (choose-status)
         resources (generate-resources (+ average-resource-per-report (rand-int 80) -40) desired-status)]
-    (post-command pdb (facts-command name environment @ts))
-    (post-command pdb (catalog-command resources name environment uuid config-version @ts))
-    (doall
-      (repeatedly x #(post-command pdb (report-command resources desired-status name environment uuid config-version ts))))
+    (doall (repeatedly x #(generate-puppet-run pdb name environment ts resources uuid config-version desired-status)))
     (println "Submitted" x "reports against" name "...")))
 
 (defn -main
