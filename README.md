@@ -28,6 +28,18 @@ If you're happy to edit the source you have some more options, which are listed 
 
     (def average-events-per-report 50)    ; On average, if a report is not unchanged it will have this many events
 
+## Limitations
+
+There are lots of limitations that it would be great to address, in rough order of priority:
+
+* The number of events should be much less than the number of resources but they are currently the same
+* Unchanged counts can be negative but shouldn't be
+* The randomization thresholds for statuses should be configurable
+* Metrics are totally random and consequently are not internally consistent
+* Node/Resource/File names are unrealistic
+* The catalog is the simplest possible tree - it should be more complex or of configurable complexity and shape
+* The relationship between skipped and failed resources is not correct
+* SSL not supported
 
 ## License
 
