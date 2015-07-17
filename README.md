@@ -37,6 +37,7 @@ There are lots of limitations that it would be great to address, in rough order 
 * The randomization thresholds for statuses should be configurable
 * Metrics are totally random and consequently are not internally consistent
 * Node/Resource/File names are unrealistic
+* Node/Resource/File names don't vary much in length - very short and very long names would be useful
 * The catalog is the simplest possible tree - it should be more complex or of configurable complexity and shape
 * The relationship between skipped and failed resources is not correct
 * SSL not supported
