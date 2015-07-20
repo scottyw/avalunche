@@ -36,6 +36,7 @@ There are lots of limitations that it would be great to address, in rough order 
 * Unchanged counts can be negative but shouldn't be
 * The randomization thresholds for statuses should be configurable
 * Metrics are totally random and consequently are not internally consistent
+* Facts are very static - varied selection of facts would be useful
 * Node/Resource/File names are unrealistic
 * Node/Resource/File names don't vary much in length - very short and very long names would be useful
 * The catalog is the simplest possible tree - it should be more complex or of configurable complexity and shape
