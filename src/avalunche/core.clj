@@ -30,7 +30,7 @@
     :unchanged "unchanged"
     :noop (get ["unchanged" "noop"] (rand-int 2))
     :changed (get ["unchanged" "success"] (rand-int 2))
-    :failed (get ["unchanged" "success" "skipped" "failure"] (rand-int 4))))
+    :failed (get ["success" "skipped" "failure"] (rand-int 3))))
 
 (defn- required-event-status
   [desired-status]
@@ -208,12 +208,8 @@
 
 (defn- choose-status
   []
-  (condp > (rand-int 1000)
-    500 :unchanged                                          ; 95% of reports are unchanged
-    650 :noop                                               ; 20% of reports that aren't unchanged are noop (i.e. 20% of the remaining 5%)
-    750 :failed                                             ; 20% of reports that aren't unchanged are failed (i.e. 20% of the remaining 5%)
-    1000 :changed                                           ; 60% of reports that aren't unchanged are changed (i.e. 60% of the remaining 5%)
-    ))
+  :failed                                                   ; 60% of reports that aren't unchanged are changed (i.e. 60% of the remaining 5%)
+  )
 
 (defn- report-command
   [resources desired-status name environment uuid config-version ts]
@@ -260,7 +256,7 @@
         uuid (UUID/randomUUID)
         config-version (str (quot (.getTime (Date.)) 1000))
         desired-status (choose-status)
-        resources (generate-resources (+ average-resource-per-report (rand-int 80) -40) desired-status)]
+        resources (generate-resources average-resource-per-report desired-status)]
     (doall (repeatedly x #(generate-puppet-run pdb name environment ts resources uuid config-version desired-status)))
     (println "Submitted" x "reports against" name "...")))
 
