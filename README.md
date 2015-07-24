@@ -16,11 +16,22 @@ To create 48 reports for each of 20 nodes, for a total of 960 reports:
 
     e.g. lein run 20 48
 
-To create reports on a PuppetDB instance located elsewhere:
+Avalunche supports 3 modes of operation:
+ * ":fast" (the default) - Sends one set of facts and one catalog per node even if there are many reports
+ * ":realistic" - Sends facts and catalog for each and every report
+ * ":report-only"  - Never sends facts or catalogs, which can be useful for refreshing an already loaded system in the shortest time
 
-    lein run <number-of-distinct-nodes> <number-of-reports-per-nodes> <optional-puppetdb-prefix>
+Specify mode as a third argument:
 
-    e.g. lein run 20 48 http://pe:8080
+    lein run <number-of-distinct-nodes> <number-of-reports-per-nodes> <mode>
+
+    e.g. lein run 20 48 :report-only
+
+To populate a PuppetDB instance located elsewhere, specify a fourth argument:
+
+    lein run <number-of-distinct-nodes> <number-of-reports-per-nodes> <mode> <optional-puppetdb-prefix>
+
+    e.g. lein run 20 48 :fast http://pe:8080
 
 Only the http interface of PuppetDB is supported, not https.
 
