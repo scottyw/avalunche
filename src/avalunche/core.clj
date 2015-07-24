@@ -246,37 +246,72 @@
                              :body (json/encode command)})]
     (if (not= 200 (:status response)) (println "Unexpected response: " response))))
 
-(defn- generate-puppet-run
-  [pdb name environment ts resources uuid config-version desired-status]
-  (post-command pdb (facts-command name environment @ts))
-  (post-command pdb (catalog-command resources name environment uuid config-version @ts))
-  (post-command pdb (report-command resources desired-status name environment uuid config-version ts)))
+(defn- build-generator
+  [pdb now command-type]
+  (fn [name]
+    (let [ts (atom (- now (rand-int 60000)))                ; Slightly randomize time
+          environment (get environments (rand-int (count environments)))
+          uuid (UUID/randomUUID)
+          config-version (str (quot (.getTime (Date.)) 1000))
+          desired-status (choose-status)
+          resources (generate-resources (+ average-resource-per-report (rand-int 80) -40) desired-status)]
+      (case command-type
+        :facts (post-command pdb (facts-command name environment @ts))
+        :catalog (post-command pdb (catalog-command resources name environment uuid config-version @ts))
+        :report (post-command pdb (report-command resources desired-status name environment uuid config-version ts))))))
 
-(defn- generate-agent
-  [pdb agent-id x now]
-  (let [name (format "agent%06d" agent-id)
-        ts (atom (- now (rand-int 60000)))                  ; Slightly randomize time
-        environment (get environments (rand-int (count environments)))
-        uuid (UUID/randomUUID)
-        config-version (str (quot (.getTime (Date.)) 1000))
-        desired-status (choose-status)
-        resources (generate-resources (+ average-resource-per-report (rand-int 80) -40) desired-status)]
-    (doall (repeatedly x #(generate-puppet-run pdb name environment ts resources uuid config-version desired-status)))
-    (println "Submitted" x "reports against" name "...")))
+(defn generate-report-only
+  [node-count reports-per-node generate-report]
+  (dotimes [agent-id node-count]
+    (let [name (format "agent%06d" agent-id)]
+      (println "Submitting" reports-per-node "reports against" name "...")
+      (dotimes [report reports-per-node]
+        (generate-report name)))))
+
+(defn generate-fast
+  [node-count reports-per-node generate-facts generate-catalog generate-report]
+  (dotimes [agent-id node-count]
+    (let [name (format "agent%06d" agent-id)]
+      (println "Submitting" reports-per-node "reports against" name "...")
+      (generate-facts name)
+      (generate-catalog name)
+      (dotimes [report reports-per-node]
+        (generate-report name)))))
+
+(defn generate-realistic
+  [node-count reports-per-node generate-facts generate-catalog generate-report]
+  (dotimes [agent-id node-count]
+    (let [name (format "agent%06d" agent-id)]
+      (println "Submitting" reports-per-node "reports against" name "...")
+      (dotimes [report reports-per-node]
+        (generate-facts name)
+        (generate-catalog name)
+        (generate-report name)))))
 
 (defn -main
   "Launches Avalunche"
   [& args]
-  (if-not (<= 2 (count args) 3)
-    (println "Usage: lein run <number-of-distinct-nodes> <number-of-reports-per-nodes> [<optional-puppetdb-prefix>]")
-    (let [agent-id (atom 0)
-          now (.getTime (Date.))
+  (if-not (<= 2 (count args) 4)
+    (do
+      (println "Usage: lein run <number-of-distinct-nodes> <number-of-reports-per-nodes> [<optional-mode> <optional-puppetdb-prefix>]")
+      (println "Mode can be fast, realistic (slower) or report-only (even faster)"))
+    (let [now (.getTime (Date.))
           node-count (read-string (first args))
           reports-per-node (read-string (second args))
-          pdb (if (= 3 (count args))
-                (nth args 2)
-                "http://localhost:8080")]
-      (println "Adding" reports-per-node "reports per node for" node-count "nodes")
-      (doall
-        (repeatedly node-count #(generate-agent pdb (swap! agent-id inc) reports-per-node now)))
+          mode (if (<= 3 (count args))
+                 (nth args 2)
+                 ":fast")
+          pdb (if (= 4 (count args))
+                (nth args 3)
+                "http://localhost:8080")
+          generate-facts (build-generator pdb now :facts)
+          generate-catalog (build-generator pdb now :catalog)
+          generate-report (build-generator pdb now :report)]
+      (println "Adding" reports-per-node "reports per node for" node-count "nodes in" mode "mode")
+      (case mode
+        ":fast" (generate-fast node-count reports-per-node generate-facts generate-catalog generate-report)
+        ":report-only" (generate-report-only node-count reports-per-node generate-report)
+        ":realistic" (generate-realistic node-count reports-per-node generate-facts generate-catalog generate-report))
       (println "Finished"))))
+
+
