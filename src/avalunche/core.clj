@@ -28,9 +28,9 @@
   [desired-status]
   (case desired-status
     :unchanged "unchanged"
-    :noop (get ["unchanged" "noop"] (rand-int 2))
-    :changed (get ["unchanged" "success"] (rand-int 2))
-    :failed (get ["unchanged" "success" "skipped" "failure"] (rand-int 4))))
+    :noop (rand-nth ["unchanged" "noop"])
+    :changed (rand-nth ["unchanged" "success"])
+    :failed (rand-nth ["unchanged" "success" "skipped" "failure"])))
 
 (defn- required-event-status
   [desired-status]
@@ -45,7 +45,7 @@
   (let [i (atom 0)]
     (repeatedly total
                 (fn []
-                  (let [type (get ["Service" "File" "Package"] (rand-int 3))]
+                  (let [type (rand-nth ["Service" "File" "Package"])]
                     {:resource_title (str type "[" (swap! i inc) "]")
                      :resource_type  type
                      :status         (if (= @i 1) (required-event-status desired-status) (generate-event-status desired-status))})))))
@@ -71,25 +71,29 @@
                "/opt/puppet/share/puppet/manifests/logs4.pp"])
 
 (defn- make-event
+  [status current-ts]
+  {:status    status
+   :timestamp (make-timestamp current-ts)
+   :property  "ensure"
+   :new_value "present"
+   :old_value "absent"
+   :message   "An event occurred"})
+
+(defn- make-resource
   [resource current-ts]
   (let [{:keys [status resource_type resource_title]} resource]
-    {:containment_path [(str "Stage[" resource_type "]") (str "Puppet_enterprise::Server::" resource_type) resource_title]
-     :new_value        "present"
-     :resource_title   resource_title
-     :property         "ensure"
-     :file             (get pp-files (rand-int (count pp-files)))
-     :old_value        "absent"
-     :line             (inc (rand-int 200))
-     :status           status
+    {:timestamp        (make-timestamp current-ts)
      :resource_type    resource_type
-     :timestamp        (make-timestamp current-ts)
-     :message          "An event occurred"}))
+     :resource_title   resource_title
+     :skipped          false
+     :events           (if (not= status "unchanged") [(make-event status current-ts)] [])
+     :file             (get pp-files (rand-int (count pp-files)))
+     :line             (inc (rand-int 200))
+     :containment_path [(str "Stage[" resource_type "]") (str "Puppet_enterprise::Server::" resource_type) resource_title]}))
 
-(defn- make-events
+(defn- make-resource-list
   [resources current-ts]
-  (->> resources
-       (filter #(not= "unchanged" (:status %)))
-       (map #(make-event % current-ts))))
+  (map #(make-resource % current-ts) resources))
 
 (defn- make-metrics
   [noop?]
@@ -221,9 +225,9 @@
         noop? (= desired-status :noop)]
     (swap! ts #(- % 1800000))
     {:command "store report"
-     :version 5
+     :version 6
      :payload {:puppet_version        "4.0.0 (Puppet Enterprise Shallow Gravy man!)"
-               :report_format         5
+               :report_format         6
                :end_time              (make-timestamp current-ts)
                :start_time            (make-timestamp (- current-ts 1000))
                :producer_timestamp    (make-timestamp current-ts)
@@ -232,7 +236,7 @@
                :environment           environment
                :configuration_version config-version
                :certname              name
-               :resource_events       (make-events resources current-ts)
+               :resources             (make-resource-list resources current-ts)
                :metrics               (make-metrics noop?)
                :logs                  (make-logs desired-status current-ts)
                :noop                  noop?}}))
@@ -250,7 +254,7 @@
   [pdb now command-type]
   (fn [name]
     (let [ts (atom (- now (rand-int 60000)))                ; Slightly randomize time
-          environment (get environments (rand-int (count environments)))
+          environment (rand-nth environments)
           uuid (UUID/randomUUID)
           config-version (str (quot (.getTime (Date.)) 1000))
           desired-status (choose-status)
@@ -313,5 +317,3 @@
         ":report-only" (generate-report-only node-count reports-per-node generate-report)
         ":realistic" (generate-realistic node-count reports-per-node generate-facts generate-catalog generate-report))
       (println "Finished"))))
-
-
