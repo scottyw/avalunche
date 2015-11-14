@@ -37,6 +37,8 @@ Only the http interface of PuppetDB is supported, not https. By default in PE, P
 
     host = 0.0.0.0
 
+In Puppet Enterprise, you can configure this in the PE PuppetDB group as the `listen_address` parameter and then running puppet.
+
 If you're happy to edit the source you have some more options, which are listed at the top of the core namespace:
 
     (def average-events-per-report 50)    ; On average, if a report is not unchanged it will have this many events
