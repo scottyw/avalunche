@@ -33,7 +33,11 @@ To populate a PuppetDB instance located elsewhere, specify a fourth argument:
 
     e.g. lein run 20 48 :fast http://pe:8080
 
-Only the http interface of PuppetDB is supported, not https.
+Only the http interface of PuppetDB is supported, not https. By default in PE, PuppetDB only listens on localhost. If you want to use a remote PuppetDB, then you probably need to update the host setting in `/etc/puppetlabs/puppetdb/conf.d/jetty.ini` e.g.:
+
+    host = 0.0.0.0
+
+In Puppet Enterprise, you can configure this in the PE PuppetDB group as the `listen_address` parameter and then running puppet.
 
 If you're happy to edit the source you have some more options, which are listed at the top of the core namespace:
 
